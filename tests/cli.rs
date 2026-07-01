@@ -57,3 +57,13 @@ fn help_short_flag() {
         .success()
         .stdout(predicate::str::contains("USAGE"));
 }
+
+#[test]
+fn unknown_flag_errors() {
+    bin()
+        .arg("--nope")
+        .assert()
+        .failure()
+        .code(2)
+        .stderr(predicate::str::contains("unrecognised flag '--nope'"));
+}

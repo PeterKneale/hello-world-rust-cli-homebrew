@@ -27,17 +27,27 @@ OPTIONS:
 }
 
 /// Interpret the CLI arguments (excluding the program name) and return the text
-/// to print. `-h`/`--help` and `-v`/`--version` take precedence over a name.
-pub fn run(args: &[String]) -> String {
+/// to print, or an error message for an unrecognised flag. `-h`/`--help` and
+/// `-v`/`--version` take precedence over a name.
+pub fn run(args: &[String]) -> Result<String, String> {
+    let mut name: Option<&str> = None;
     for arg in args {
         match arg.as_str() {
-            "-h" | "--help" => return help(),
-            "-v" | "--version" => return version(),
-            _ => {}
+            "-h" | "--help" => return Ok(help()),
+            "-v" | "--version" => return Ok(version()),
+            flag if flag.starts_with('-') => {
+                return Err(format!(
+                    "error: unrecognised flag '{flag}'\n\nTry '--help' for usage."
+                ));
+            }
+            positional => {
+                if name.is_none() {
+                    name = Some(positional);
+                }
+            }
         }
     }
-    let name = args.iter().find(|a| !a.starts_with('-'));
-    greeting(name.map(String::as_str))
+    Ok(greeting(name))
 }
 
 #[cfg(test)]
@@ -56,33 +66,39 @@ mod tests {
 
     #[test]
     fn run_no_args_greets_world() {
-        assert_eq!(run(&[]), "Hello, world!");
+        assert_eq!(run(&[]).unwrap(), "Hello, world!");
     }
 
     #[test]
     fn run_positional_is_greeted() {
-        assert_eq!(run(&["Peter".to_string()]), "Hello, Peter!");
+        assert_eq!(run(&["Peter".to_string()]).unwrap(), "Hello, Peter!");
     }
 
     #[test]
     fn run_help_flags() {
-        assert_eq!(run(&["--help".to_string()]), help());
-        assert_eq!(run(&["-h".to_string()]), help());
+        assert_eq!(run(&["--help".to_string()]).unwrap(), help());
+        assert_eq!(run(&["-h".to_string()]).unwrap(), help());
         assert!(help().contains("USAGE"));
     }
 
     #[test]
     fn run_version_flags() {
-        assert_eq!(run(&["--version".to_string()]), version());
-        assert_eq!(run(&["-v".to_string()]), version());
+        assert_eq!(run(&["--version".to_string()]).unwrap(), version());
+        assert_eq!(run(&["-v".to_string()]).unwrap(), version());
         assert!(version().contains(VERSION));
     }
 
     #[test]
     fn flags_take_precedence_over_name() {
         assert_eq!(
-            run(&["Peter".to_string(), "--version".to_string()]),
+            run(&["Peter".to_string(), "--version".to_string()]).unwrap(),
             version()
         );
+    }
+
+    #[test]
+    fn run_unknown_flag_errors() {
+        let err = run(&["--nope".to_string()]).unwrap_err();
+        assert!(err.contains("unrecognised flag '--nope'"));
     }
 }

@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0](https://github.com/PeterKneale/hello-world-rust-cli-homebrew/releases/tag/v0.3.0) - 2026-07-02
+
+### Added
+
+- error on unrecognised flags with a usage hint and exit code 2
+
 ## [0.2.0](https://github.com/PeterKneale/hello-world-rust-cli-homebrew/releases/tag/v0.2.0) - 2026-07-02
 
 ### Added

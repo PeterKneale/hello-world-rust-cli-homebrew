@@ -1,6 +1,6 @@
 [package]
 name = "hello-world-rust-cli-homebrew"
-version = "0.2.0"
+version = "0.3.0"
 edition = "2021"
 description = "Hello world CLI distributed via a custom Homebrew tap"
 repository = "https://github.com/PeterKneale/hello-world-rust-cli-homebrew"
