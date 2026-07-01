@@ -1,0 +1,107 @@
+name: Release binaries
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: write
+
+jobs:
+  upload-binaries:
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: aarch64-apple-darwin
+            os: macos-14
+            name: macos-arm64
+          # Cross-compiled on the Apple Silicon runner: GitHub's macos-13 Intel
+          # runners are effectively unavailable (jobs queue indefinitely), and the
+          # x86_64 target builds fine on macos-14 via the universal macOS SDK.
+          - target: x86_64-apple-darwin
+            os: macos-14
+            name: macos-x86_64
+          - target: x86_64-unknown-linux-gnu
+            os: ubuntu-latest
+            name: linux-x86_64
+          - target: aarch64-unknown-linux-gnu
+            os: ubuntu-latest
+            name: linux-arm64
+    steps:
+      - uses: actions/checkout@v4
+
+      # On the release event GITHUB_REF_NAME is the tag (vX.Y.Z); strip the
+      # leading v so the version embeds cleanly in the archive name.
+      - name: Resolve version from tag
+        id: version
+        run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+
+      # Produces e.g. hello-world-rust-cli-homebrew-0.1.0-macos-arm64.tar.gz (+ .sha256).
+      - name: Build and upload ${{ matrix.name }}
+        uses: taiki-e/upload-rust-binary-action@v1
+        with:
+          bin: hello-world-rust-cli-homebrew
+          target: ${{ matrix.target }}
+          archive: hello-world-rust-cli-homebrew-${{ steps.version.outputs.version }}-${{ matrix.name }}
+          include: README.md
+          checksum: sha256
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+  # After all binaries are attached, regenerate the Homebrew formula in the tap
+  # repo so `brew install` always points at the just-published release.
+  update-formula:
+    name: Update Homebrew formula
+    needs: upload-binaries
+    runs-on: ubuntu-latest
+    env:
+      TAP_TOKEN: ${{ secrets.RELEASE_PLZ_TOKEN }}
+    steps:
+      # The tap is a separate repo, so pushing to it needs a token with
+      # contents:write on PeterKneale/homebrew-tap. Reuse the RELEASE_PLZ_TOKEN
+      # PAT (it already has cross-repo write). If it is not configured, skip with
+      # a warning rather than failing the release.
+      - name: Check tap token
+        id: gate
+        run: |
+          if [ -z "${TAP_TOKEN}" ]; then
+            echo "::warning::RELEASE_PLZ_TOKEN not set; skipping Homebrew formula update."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Check out the tool (for the update script)
+        if: steps.gate.outputs.skip != 'true'
+        uses: actions/checkout@v4
+
+      - name: Check out the Homebrew tap
+        if: steps.gate.outputs.skip != 'true'
+        uses: actions/checkout@v4
+        with:
+          repository: PeterKneale/homebrew-tap
+          token: ${{ secrets.RELEASE_PLZ_TOKEN }}
+          path: homebrew-tap
+
+      - name: Regenerate the formula for this release
+        if: steps.gate.outputs.skip != 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          bash .github/scripts/update-homebrew-formula.sh \
+            "$version" "${{ github.repository }}" homebrew-tap/Formula/hello-world-rust-cli-homebrew.rb
+
+      - name: Commit and push to the tap
+        if: steps.gate.outputs.skip != 'true'
+        run: |
+          cd homebrew-tap
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add Formula/hello-world-rust-cli-homebrew.rb
+          if git diff --cached --quiet; then
+            echo "Formula already up to date for ${GITHUB_REF_NAME}"
+          else
+            git commit -m "hello-world-rust-cli-homebrew ${GITHUB_REF_NAME#v}"
+            git push
+          fi

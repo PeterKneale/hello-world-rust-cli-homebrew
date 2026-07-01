@@ -1,0 +1,15 @@
+[package]
+name = "hello-world-rust-cli-homebrew"
+version = "0.1.0"
+edition = "2021"
+description = "Hello world CLI distributed via a custom Homebrew tap"
+repository = "https://github.com/PeterKneale/hello-world-rust-cli-homebrew"
+license = "MIT"
+
+[profile.release]
+strip = true
+lto = true
+
+[dev-dependencies]
+assert_cmd = "2"
+predicates = "3"
