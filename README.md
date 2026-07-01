@@ -20,6 +20,8 @@ brew install hello-world-rust-cli-homebrew
 ```sh
 hello-world-rust-cli-homebrew          # Hello, world!
 hello-world-rust-cli-homebrew Peter    # Hello, Peter!
+hello-world-rust-cli-homebrew -h       # or --help: print usage
+hello-world-rust-cli-homebrew -v       # or --version: print version
 ```
 
 ## Development

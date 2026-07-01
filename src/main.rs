@@ -1,7 +1,4 @@
 fn main() {
-    let name = std::env::args().nth(1);
-    println!(
-        "{}",
-        hello_world_rust_cli_homebrew::greeting(name.as_deref())
-    );
+    let args: Vec<String> = std::env::args().skip(1).collect();
+    println!("{}", hello_world_rust_cli_homebrew::run(&args));
 }
